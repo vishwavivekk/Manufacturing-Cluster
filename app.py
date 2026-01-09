@@ -5,6 +5,22 @@ import streamlit as st
 import folium
 from folium.plugins import HeatMap, Fullscreen
 from streamlit_folium import st_folium
+st.set_page_config(
+    page_title="Manufacturing Cluster Intelligence",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    div[data-testid="stToolbar"] { visibility: hidden; height: 0px; }
+    </style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # =====================================================
 # CONFIGURATION & STYLING
