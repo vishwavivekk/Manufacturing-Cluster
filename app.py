@@ -27,7 +27,6 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # CONFIGURATION & STYLING
 # =====================================================
 
-# Custom CSS for better spacing and metrics styling
 st.markdown("""
     <style>
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
@@ -40,7 +39,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Distinct color palette for sectors to ensure visibility
 COLOR_PALETTE = [
     "#E63946", "#1D3557", "#457B9D", "#A8DADC", "#2A9D8F",
     "#F4A261", "#E76F51", "#6A4C93", "#8AC926", "#FFCA3A"
@@ -50,12 +48,10 @@ COLOR_PALETTE = [
 # UTILITY FUNCTIONS
 # =====================================================
 def get_sector_color(sector: str) -> str:
-    """Deterministically map a sector name to a color from the palette."""
     hash_val = int(hashlib.md5(sector.encode()).hexdigest(), 16)
     return COLOR_PALETTE[hash_val % len(COLOR_PALETTE)]
 
 def categorize_size(total_units):
-    """Categorize manufacturing units by size."""
     if total_units < 20:
         return "Nano (0-20)"
     elif total_units < 50:
@@ -83,6 +79,11 @@ def load_data(path: str):
         if not all(col in df.columns for col in required_cols):
             st.error(f"Data missing required columns: {required_cols}")
             st.stop()
+
+        # --- FIX: CLEAN STATE/DISTRICT NAMES TO PREVENT FILTER ERRORS ---
+        df["State"] = df["State"].astype(str).str.strip()
+        df["District"] = df["District"].astype(str).str.strip()
+        # ---------------------------------------------------------------
 
         # Identify manufacturing columns
         manuf_cols = [str(c) for c in df.columns[7:44]]
@@ -115,26 +116,31 @@ if df is None:
 st.sidebar.title("🌍 Filters")
 
 # 1. Geographic Filters
-state_options = ["All India"] + sorted(df["State"].astype(str).unique())
+state_options = ["All India"] + sorted(df["State"].unique())
 selected_state = st.sidebar.selectbox("Select State", state_options)
 
+# --- LOGIC FIX: Ensure Filtering Happens Strictly Here ---
 if selected_state == "All India":
-    df_filtered = df
+    df_filtered = df.copy()
     district_options = ["All Districts"]
 else:
-    df_filtered = df[df["State"] == selected_state]
-    district_options = ["All Districts"] + sorted(df_filtered["District"].astype(str).unique())
+    df_filtered = df[df["State"] == selected_state].copy()
+    district_options = ["All Districts"] + sorted(df_filtered["District"].unique())
 
 selected_district = st.sidebar.selectbox("Select District", district_options)
 
 if selected_district != "All Districts":
     df_filtered = df_filtered[df_filtered["District"] == selected_district]
+# -------------------------------------------------------
 
 st.sidebar.markdown("---")
 
 # 2. Sector Filters (Dynamic)
-current_sector_sums = df_filtered[manufacturing_columns].sum()
-active_sectors = current_sector_sums[current_sector_sums > 0].index.tolist()
+if not df_filtered.empty:
+    current_sector_sums = df_filtered[manufacturing_columns].sum()
+    active_sectors = current_sector_sums[current_sector_sums > 0].index.tolist()
+else:
+    active_sectors = []
 
 st.sidebar.subheader("🏭 Industry Sectors")
 selected_sectors = st.sidebar.multiselect(
@@ -177,12 +183,30 @@ if selected_sectors and not df_filtered.empty:
 # =====================================================
 # MAIN DASHBOARD
 # =====================================================
-st.title("🏭 Manufacturing Cluster Intelligence")
+
+# --- FIX: DYNAMIC TITLE LOGIC ---
+if selected_state == "All India":
+    cluster_title = "All India Manufacturing Overview"
+elif selected_district == "All Districts":
+    cluster_title = f"{selected_state} Manufacturing Overview"
+else:
+    cluster_title = f"{selected_district} ({selected_state}) Cluster Overview"
+
+st.title(f"🏭 {cluster_title}")
+# --------------------------------
 
 # 1. Key Metrics Row
 if selected_sectors and not df_filtered.empty:
     total_units = df_filtered[selected_sectors].sum().sum()
-    top_district = df_filtered.groupby("District")[selected_sectors].sum().sum(axis=1).idxmax() if not df_filtered.empty else "N/A"
+    
+    # --- FIX: Explicitly Calculate Top District from Filtered Data ---
+    # We group by District and sum the selected sectors
+    district_sums = df_filtered.groupby("District")[selected_sectors].sum().sum(axis=1)
+    if not district_sums.empty:
+        top_district = district_sums.idxmax()
+    else:
+        top_district = "N/A"
+        
     active_locs = len(df_filtered[df_filtered[selected_sectors].sum(axis=1) > 0])
 else:
     total_units = 0
@@ -190,8 +214,8 @@ else:
     active_locs = 0
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Selected State", selected_state)
-col2.metric("Total Units (Selected)", f"{int(total_units):,}")
+col1.metric("Selected Region", selected_district if selected_district != "All Districts" else selected_state)
+col2.metric("Total Units", f"{int(total_units):,}")
 col3.metric("Active Clusters", active_locs)
 col4.metric("Top District", top_district)
 
