@@ -5,6 +5,7 @@ import streamlit as st
 import folium
 from folium.plugins import HeatMap, Fullscreen
 from streamlit_folium import st_folium
+
 st.set_page_config(
     page_title="Manufacturing Cluster Intelligence",
     layout="wide",
@@ -25,12 +26,6 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # =====================================================
 # CONFIGURATION & STYLING
 # =====================================================
-st.set_page_config(
-    page_title="Manufacturing Cluster Intelligence",
-    page_icon="🏭",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Custom CSS for better spacing and metrics styling
 st.markdown("""
@@ -59,6 +54,19 @@ def get_sector_color(sector: str) -> str:
     hash_val = int(hashlib.md5(sector.encode()).hexdigest(), 16)
     return COLOR_PALETTE[hash_val % len(COLOR_PALETTE)]
 
+def categorize_size(total_units):
+    """Categorize manufacturing units by size."""
+    if total_units < 20:
+        return "Nano (0-20)"
+    elif total_units < 50:
+        return "Micro (20-50)"
+    elif total_units < 100:
+        return "Small (50-100)"
+    elif total_units < 500:
+        return "Medium (100-500)"
+    else:
+        return "Large (500+)"
+
 @st.cache_data
 def load_data(path: str):
     """Loads and cleans the manufacturing data."""
@@ -68,8 +76,7 @@ def load_data(path: str):
     try:
         df = pd.read_excel(path)
         
-        # Standardize column names (optional cleaning)
-        # Convert to string first to handle cases where headers are numbers/floats
+        # Standardize column names
         df.columns = [str(c).strip() for c in df.columns]
 
         required_cols = ["State", "District", "Latitude", "Longitude"]
@@ -77,8 +84,7 @@ def load_data(path: str):
             st.error(f"Data missing required columns: {required_cols}")
             st.stop()
 
-        # Identify manufacturing columns (assuming index 7 to 44 based on original code)
-        # We ensure they are strings to avoid index errors
+        # Identify manufacturing columns
         manuf_cols = [str(c) for c in df.columns[7:44]]
         
         # Fill NaNs and ensure numeric types
@@ -127,7 +133,6 @@ if selected_district != "All Districts":
 st.sidebar.markdown("---")
 
 # 2. Sector Filters (Dynamic)
-# Only show sectors that have non-zero data in the current filtered view
 current_sector_sums = df_filtered[manufacturing_columns].sum()
 active_sectors = current_sector_sums[current_sector_sums > 0].index.tolist()
 
@@ -139,7 +144,35 @@ selected_sectors = st.sidebar.multiselect(
     help="Select one or more sectors to see their distribution."
 )
 
+st.sidebar.markdown("---")
+
+# 3. Size Category Filter
+st.sidebar.subheader("📏 Unit Size Categories")
+size_categories = ["Nano (0-20)", "Micro (20-50)", "Small (50-100)", "Medium (100-500)", "Large (500+)"]
+selected_sizes = st.sidebar.multiselect(
+    "Filter by Size",
+    options=size_categories,
+    default=size_categories,
+    help="Filter locations based on total manufacturing units"
+)
+
+st.sidebar.markdown("---")
+
 map_mode = st.sidebar.radio("Visualization Mode", ["Detailed Markers", "Density Heatmap"])
+
+# =====================================================
+# APPLY SIZE FILTER
+# =====================================================
+if selected_sectors and not df_filtered.empty:
+    # Calculate total units for each location based on selected sectors
+    df_filtered["Total_Units"] = df_filtered[selected_sectors].sum(axis=1)
+    
+    # Categorize each location
+    df_filtered["Size_Category"] = df_filtered["Total_Units"].apply(categorize_size)
+    
+    # Apply size filter
+    if selected_sizes:
+        df_filtered = df_filtered[df_filtered["Size_Category"].isin(selected_sizes)]
 
 # =====================================================
 # MAIN DASHBOARD
@@ -147,8 +180,7 @@ map_mode = st.sidebar.radio("Visualization Mode", ["Detailed Markers", "Density 
 st.title("🏭 Manufacturing Cluster Intelligence")
 
 # 1. Key Metrics Row
-if selected_sectors:
-    # Calculate totals for the selected view
+if selected_sectors and not df_filtered.empty:
     total_units = df_filtered[selected_sectors].sum().sum()
     top_district = df_filtered.groupby("District")[selected_sectors].sum().sum(axis=1).idxmax() if not df_filtered.empty else "N/A"
     active_locs = len(df_filtered[df_filtered[selected_sectors].sum(axis=1) > 0])
@@ -170,13 +202,13 @@ st.markdown("---")
 # =====================================================
 # Determine Map Center and Zoom
 if selected_district != "All Districts":
-    center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()]
+    center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()] if not df_filtered.empty else [22.0, 78.0]
     zoom = 10
 elif selected_state != "All India":
-    center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()]
+    center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()] if not df_filtered.empty else [22.0, 78.0]
     zoom = 7
 else:
-    center = [22.0, 78.0] # Center of India
+    center = [22.0, 78.0]
     zoom = 5
 
 m = folium.Map(location=center, zoom_start=zoom, tiles="CartoDB positron", control_scale=True)
@@ -186,13 +218,12 @@ Fullscreen().add_to(m)
 if selected_sectors and not df_filtered.empty:
     df_map = df_filtered.copy()
     df_map["Total_Selected"] = df_map[selected_sectors].sum(axis=1)
-    df_map = df_map[df_map["Total_Selected"] > 0] # Only show locations with data
+    df_map = df_map[df_map["Total_Selected"] > 0]
 
     # ---------------------------
     # HEATMAP MODE
     # ---------------------------
     if map_mode == "Density Heatmap":
-        # Prepare data: Lat, Lon, Intensity (Total of selected sectors)
         heat_data = df_map[["Latitude", "Longitude", "Total_Selected"]].values.tolist()
         HeatMap(
             heat_data, 
@@ -202,7 +233,6 @@ if selected_sectors and not df_filtered.empty:
             gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
         ).add_to(m)
         
-        # Add a simple legend for context
         legend_html = '''
              <div style="position: fixed; bottom: 50px; left: 50px; z-index:9999; font-size:14px;
              background-color: white; padding: 10px; border-radius: 5px; border: 1px solid grey;">
@@ -219,20 +249,18 @@ if selected_sectors and not df_filtered.empty:
         max_val = df_map["Total_Selected"].max() if not df_map.empty else 1
         
         for idx, row in df_map.iterrows():
-            # Find the dominant sector for this specific point to color-code it
             row_sectors = row[selected_sectors]
             dominant_sector = row_sectors.idxmax()
             dominant_val = row_sectors.max()
             
-            # Dynamic radius based on volume
             radius = 5 + (dominant_val / max_val) * 15
 
-            # Detailed HTML Popup
             tooltip_html = f"""
                 <div style="font-family: sans-serif; min-width: 150px;">
                     <h4 style="margin:0;">{row['District']}</h4>
                     <small style="color:gray;">{row['State']}</small>
                     <hr style="margin: 5px 0;">
+                    <b>Size:</b> {row['Size_Category']}<br>
                     <b>Dominant:</b> {dominant_sector}<br>
                     <b>Total Selected:</b> {int(row['Total_Selected'])}<br>
                     <div style="margin-top:5px; max-height:100px; overflow-y:auto;">
@@ -252,7 +280,7 @@ if selected_sectors and not df_filtered.empty:
                 fill_opacity=0.7,
                 weight=1,
                 popup=folium.Popup(tooltip_html, max_width=300),
-                tooltip=f"{row['District']}: {int(row['Total_Selected'])} units"
+                tooltip=f"{row['District']}: {int(row['Total_Selected'])} units ({row['Size_Category']})"
             ).add_to(m)
 
         # ---------------------------
@@ -283,7 +311,6 @@ if selected_sectors and not df_filtered.empty:
         m.get_root().html.add_child(folium.Element(legend_html))
 
 else:
-    # Fallback if no data/sectors selected
     st.info("👈 Please select at least one sector from the sidebar to visualize data.")
 
 # Render the Map
@@ -294,17 +321,14 @@ st_folium(m, height=600, use_container_width=True)
 # =====================================================
 with st.expander("📊 View & Download Data", expanded=False):
     if selected_sectors and not df_filtered.empty:
-        # Prepare export frame
-        cols_to_show = ["State", "District"] + selected_sectors
+        cols_to_show = ["State", "District", "Size_Category"] + selected_sectors
         export_df = df_filtered[cols_to_show].copy()
         
-        # Add total column for convenience
         export_df["Total_Selected"] = export_df[selected_sectors].sum(axis=1)
         export_df = export_df[export_df["Total_Selected"] > 0].sort_values("Total_Selected", ascending=False)
         
         st.dataframe(export_df, use_container_width=True)
         
-        # CSV Download
         csv = export_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Download Filtered Data as CSV",
