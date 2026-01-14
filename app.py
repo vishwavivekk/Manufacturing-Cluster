@@ -5,6 +5,7 @@ import streamlit as st
 import folium
 from folium.plugins import HeatMap, Fullscreen
 from streamlit_folium import st_folium
+from math import radians, cos, sin, asin, sqrt
 
 st.set_page_config(
     page_title="Manufacturing Cluster Intelligence",
@@ -47,6 +48,25 @@ COLOR_PALETTE = [
 # =====================================================
 # UTILITY FUNCTIONS
 # =====================================================
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance in kilometers between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # Convert decimal degrees to radians
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    
+    # Radius of earth in kilometers
+    r = 6371
+    
+    return c * r
+
 def get_sector_color(sector: str) -> str:
     hash_val = int(hashlib.md5(sector.encode()).hexdigest(), 16)
     return COLOR_PALETTE[hash_val % len(COLOR_PALETTE)]
@@ -80,10 +100,8 @@ def load_data(path: str):
             st.error(f"Data missing required columns: {required_cols}")
             st.stop()
 
-        # --- FIX: CLEAN STATE/DISTRICT NAMES TO PREVENT FILTER ERRORS ---
         df["State"] = df["State"].astype(str).str.strip()
         df["District"] = df["District"].astype(str).str.strip()
-        # ---------------------------------------------------------------
 
         # Identify manufacturing columns
         manuf_cols = [str(c) for c in df.columns[7:44]]
@@ -119,7 +137,6 @@ st.sidebar.title("🌍 Filters")
 state_options = ["All India"] + sorted(df["State"].unique())
 selected_state = st.sidebar.selectbox("Select State", state_options)
 
-# --- LOGIC FIX: Ensure Filtering Happens Strictly Here ---
 if selected_state == "All India":
     df_filtered = df.copy()
     district_options = ["All Districts"]
@@ -131,11 +148,57 @@ selected_district = st.sidebar.selectbox("Select District", district_options)
 
 if selected_district != "All Districts":
     df_filtered = df_filtered[df_filtered["District"] == selected_district]
-# -------------------------------------------------------
 
 st.sidebar.markdown("---")
 
-# 2. Sector Filters (Dynamic)
+# 2. Radius Filter (NEW FEATURE)
+st.sidebar.subheader("📍 Radius Filter")
+enable_radius = st.sidebar.checkbox("Enable Distance-Based Filter", value=False)
+
+if enable_radius:
+    # Get available districts for radius center selection
+    if selected_state == "All India":
+        radius_district_options = sorted(df["District"].unique())
+    else:
+        radius_district_options = sorted(df[df["State"] == selected_state]["District"].unique())
+    
+    center_district = st.sidebar.selectbox(
+        "Select Center District",
+        options=radius_district_options,
+        help="Select the district to use as the center point"
+    )
+    
+    radius_km = st.sidebar.slider(
+        "Radius (km)",
+        min_value=5,
+        max_value=500,
+        value=50,
+        step=5,
+        help="Show manufacturing units within this distance from the center district"
+    )
+    
+    # Get center coordinates for the selected district
+    center_district_data = df[df["District"] == center_district]
+    if not center_district_data.empty:
+        center_lat = center_district_data["Latitude"].mean()
+        center_lon = center_district_data["Longitude"].mean()
+        
+        # Calculate distance for all points in df_filtered
+        df_filtered["Distance_km"] = df_filtered.apply(
+            lambda row: haversine_distance(center_lat, center_lon, row["Latitude"], row["Longitude"]),
+            axis=1
+        )
+        
+        # Filter by radius
+        df_filtered = df_filtered[df_filtered["Distance_km"] <= radius_km]
+        
+        st.sidebar.info(f"📏 Showing units within {radius_km} km of {center_district}")
+    else:
+        st.sidebar.warning("⚠️ Center district not found in data")
+
+st.sidebar.markdown("---")
+
+# 3. Sector Filters (Dynamic)
 if not df_filtered.empty:
     current_sector_sums = df_filtered[manufacturing_columns].sum()
     active_sectors = current_sector_sums[current_sector_sums > 0].index.tolist()
@@ -152,7 +215,7 @@ selected_sectors = st.sidebar.multiselect(
 
 st.sidebar.markdown("---")
 
-# 3. Size Category Filter
+# 4. Size Category Filter
 st.sidebar.subheader("📏 Unit Size Categories")
 size_categories = ["Nano (0-20)", "Micro (20-50)", "Small (50-100)", "Medium (100-500)", "Large (500+)"]
 selected_sizes = st.sidebar.multiselect(
@@ -170,13 +233,9 @@ map_mode = st.sidebar.radio("Visualization Mode", ["Detailed Markers", "Density 
 # APPLY SIZE FILTER
 # =====================================================
 if selected_sectors and not df_filtered.empty:
-    # Calculate total units for each location based on selected sectors
     df_filtered["Total_Units"] = df_filtered[selected_sectors].sum(axis=1)
-    
-    # Categorize each location
     df_filtered["Size_Category"] = df_filtered["Total_Units"].apply(categorize_size)
     
-    # Apply size filter
     if selected_sizes:
         df_filtered = df_filtered[df_filtered["Size_Category"].isin(selected_sizes)]
 
@@ -184,8 +243,10 @@ if selected_sectors and not df_filtered.empty:
 # MAIN DASHBOARD
 # =====================================================
 
-# --- FIX: DYNAMIC TITLE LOGIC ---
-if selected_state == "All India":
+# Dynamic Title
+if enable_radius:
+    cluster_title = f"Manufacturing Units within {radius_km}km of {center_district}"
+elif selected_state == "All India":
     cluster_title = "All India Manufacturing Overview"
 elif selected_district == "All Districts":
     cluster_title = f"{selected_state} Manufacturing Overview"
@@ -193,14 +254,11 @@ else:
     cluster_title = f"{selected_district} ({selected_state}) Cluster Overview"
 
 st.title(f"🏭 {cluster_title}")
-# --------------------------------
 
 # 1. Key Metrics Row
 if selected_sectors and not df_filtered.empty:
     total_units = df_filtered[selected_sectors].sum().sum()
     
-    # --- FIX: Explicitly Calculate Top District from Filtered Data ---
-    # We group by District and sum the selected sectors
     district_sums = df_filtered.groupby("District")[selected_sectors].sum().sum(axis=1)
     if not district_sums.empty:
         top_district = district_sums.idxmax()
@@ -225,7 +283,10 @@ st.markdown("---")
 # MAP GENERATION
 # =====================================================
 # Determine Map Center and Zoom
-if selected_district != "All Districts":
+if enable_radius and 'center_lat' in locals():
+    center = [center_lat, center_lon]
+    zoom = 9
+elif selected_district != "All Districts":
     center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()] if not df_filtered.empty else [22.0, 78.0]
     zoom = 10
 elif selected_state != "All India":
@@ -238,15 +299,32 @@ else:
 m = folium.Map(location=center, zoom_start=zoom, tiles="CartoDB positron", control_scale=True)
 Fullscreen().add_to(m)
 
-# Logic to filter data for the map based on selection
+# Add radius circle if enabled
+if enable_radius and 'center_lat' in locals():
+    folium.Circle(
+        location=[center_lat, center_lon],
+        radius=radius_km * 1000,  # Convert km to meters
+        color='blue',
+        fill=True,
+        fillColor='blue',
+        fillOpacity=0.1,
+        weight=2,
+        popup=f"{center_district} - {radius_km}km radius"
+    ).add_to(m)
+    
+    # Add center marker
+    folium.Marker(
+        location=[center_lat, center_lon],
+        popup=f"<b>Center: {center_district}</b>",
+        icon=folium.Icon(color='blue', icon='info-sign')
+    ).add_to(m)
+
 if selected_sectors and not df_filtered.empty:
     df_map = df_filtered.copy()
     df_map["Total_Selected"] = df_map[selected_sectors].sum(axis=1)
     df_map = df_map[df_map["Total_Selected"] > 0]
 
-    # ---------------------------
     # HEATMAP MODE
-    # ---------------------------
     if map_mode == "Density Heatmap":
         heat_data = df_map[["Latitude", "Longitude", "Total_Selected"]].values.tolist()
         HeatMap(
@@ -266,9 +344,7 @@ if selected_sectors and not df_filtered.empty:
         '''
         m.get_root().html.add_child(folium.Element(legend_html))
 
-    # ---------------------------
     # DETAILED MARKERS MODE
-    # ---------------------------
     else:
         max_val = df_map["Total_Selected"].max() if not df_map.empty else 1
         
@@ -287,8 +363,13 @@ if selected_sectors and not df_filtered.empty:
                     <b>Size:</b> {row['Size_Category']}<br>
                     <b>Dominant:</b> {dominant_sector}<br>
                     <b>Total Selected:</b> {int(row['Total_Selected'])}<br>
-                    <div style="margin-top:5px; max-height:100px; overflow-y:auto;">
             """
+            
+            if enable_radius and 'Distance_km' in row:
+                tooltip_html += f"<b>Distance:</b> {row['Distance_km']:.1f} km<br>"
+            
+            tooltip_html += "<div style='margin-top:5px; max-height:100px; overflow-y:auto;'>"
+            
             for s in selected_sectors:
                 val = row[s]
                 if val > 0:
@@ -307,9 +388,7 @@ if selected_sectors and not df_filtered.empty:
                 tooltip=f"{row['District']}: {int(row['Total_Selected'])} units ({row['Size_Category']})"
             ).add_to(m)
 
-        # ---------------------------
         # CUSTOM LEGEND
-        # ---------------------------
         legend_items = ""
         for s in selected_sectors:
             color = get_sector_color(s)
@@ -346,6 +425,9 @@ st_folium(m, height=600, use_container_width=True)
 with st.expander("📊 View & Download Data", expanded=False):
     if selected_sectors and not df_filtered.empty:
         cols_to_show = ["State", "District", "Size_Category"] + selected_sectors
+        if enable_radius and 'Distance_km' in df_filtered.columns:
+            cols_to_show.insert(3, "Distance_km")
+        
         export_df = df_filtered[cols_to_show].copy()
         
         export_df["Total_Selected"] = export_df[selected_sectors].sum(axis=1)
