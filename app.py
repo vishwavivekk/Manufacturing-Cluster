@@ -134,10 +134,10 @@ if df is None:
 st.sidebar.title("🌍 Filters")
 
 # 1. Geographic Filters
-state_options = ["All India"] + sorted(df["State"].unique())
+state_options = ["India"] + sorted(df["State"].unique())
 selected_state = st.sidebar.selectbox("Select State", state_options)
 
-if selected_state == "All India":
+if selected_state == "India":
     df_filtered = df.copy()
     district_options = ["All Districts"]
 else:
@@ -157,7 +157,7 @@ enable_radius = st.sidebar.checkbox("Enable Distance-Based Filter", value=False)
 
 if enable_radius:
     # Get available districts for radius center selection
-    if selected_state == "All India":
+    if selected_state == "India":
         radius_district_options = sorted(df["District"].unique())
     else:
         radius_district_options = sorted(df[df["State"] == selected_state]["District"].unique())
@@ -216,7 +216,7 @@ selected_sectors = st.sidebar.multiselect(
 st.sidebar.markdown("---")
 
 # 4. Size Category Filter
-st.sidebar.subheader("📏 Unit Size Categories")
+st.sidebar.subheader("📏 Unit Size By Number Of Employees")
 size_categories = ["Nano (0-20)", "Micro (20-50)", "Small (50-100)", "Medium (100-500)", "Large (500+)"]
 selected_sizes = st.sidebar.multiselect(
     "Filter by Size",
@@ -246,8 +246,8 @@ if selected_sectors and not df_filtered.empty:
 # Dynamic Title
 if enable_radius:
     cluster_title = f"Manufacturing Units within {radius_km}km of {center_district}"
-elif selected_state == "All India":
-    cluster_title = "All India Manufacturing Overview"
+elif selected_state == "India":
+    cluster_title = "India Manufacturing Overview"
 elif selected_district == "All Districts":
     cluster_title = f"{selected_state} Manufacturing Overview"
 else:
@@ -289,7 +289,7 @@ if enable_radius and 'center_lat' in locals():
 elif selected_district != "All Districts":
     center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()] if not df_filtered.empty else [22.0, 78.0]
     zoom = 10
-elif selected_state != "All India":
+elif selected_state != "India":
     center = [df_filtered["Latitude"].mean(), df_filtered["Longitude"].mean()] if not df_filtered.empty else [22.0, 78.0]
     zoom = 7
 else:
