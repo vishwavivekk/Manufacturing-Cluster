@@ -19,6 +19,9 @@ hide_streamlit_style = """
     footer {visibility: hidden;}
     header {visibility: hidden;}
     div[data-testid="stToolbar"] { visibility: hidden; height: 0px; }
+    .stActionButton {visibility: hidden;}
+    button[kind="header"] {visibility: hidden;}
+    [data-testid="stHeaderActionElements"] {visibility: hidden;}
     </style>
 """
 
@@ -31,12 +34,6 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 st.markdown("""
     <style>
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-    div[data-testid="stMetric"] {
-        background-color: #f8f9fa;
-        border: 1px solid #e0e0e0;
-        padding: 10px;
-        border-radius: 8px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
