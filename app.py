@@ -1,4 +1,3 @@
-
 import os
 import hashlib
 import pandas as pd
@@ -96,16 +95,53 @@ def load_data(path: str):
         # Standardize column names
         df.columns = [str(c).strip() for c in df.columns]
 
-        required_cols = ["State", "District", "Latitude", "Longitude"]
+        required_cols = ["State/UT Name", "District Name", "Latitude", "Longitude"]
         if not all(col in df.columns for col in required_cols):
             st.error(f"Data missing required columns: {required_cols}")
             st.stop()
 
+        # Rename for easier handling
+        df = df.rename(columns={
+            "State/UT Name": "State",
+            "District Name": "District"
+        })
+
         df["State"] = df["State"].astype(str).str.strip()
         df["District"] = df["District"].astype(str).str.strip()
 
-        # Identify manufacturing columns
-        manuf_cols = [str(c) for c in df.columns[7:44]]
+        # Define manufacturing columns (all columns after Longitude)
+        manuf_cols = [
+            "Food Products", "Beverages", "Tobacco Products", "Textiles", 
+            "Wearing Apparel", "Leather And Related Products", 
+            "Wood And Products Of Wood And Cork", "Paper And Paper Products",
+            "Printing And Reproduction Of Recorded Media", 
+            "Coke And Refined Petroleum Products", 
+            "Chemicals And Chemical Products",
+            "Pharmaceuticals, Medicinal Chemical And Botanical Products",
+            "Rubber And Plastics Products", "Other Non-Metallic Mineral Products",
+            "Basic Metals", "Fabricated Metal Products",
+            "Computer, Electronic And Optical Products", "Electrical Equipment",
+            "Machinery And Equipment N.E.C.",
+            "Motor Vehicles, Trailers And Semi-Trailers",
+            "Other Transport Equipment", "Furniture", "Other Manufacturing",
+            "Repair And Installation Of Machinery And Equipment",
+            "Electricity, Gas, Steam And Air Conditioning Supply",
+            "Water Collection, Treatment And Supply", "Sewerage",
+            "Waste Collection, Treatment And Disposal Activities",
+            "Wholesale And Retail Trade And Repair Of Motor Vehicles And Motorcycles",
+            "Warehousing And Support Activities For Transportation",
+            "Publishing Activities",
+            "Motion Picture, Video And Television Programme Production",
+            "Other Professional, Scientific And Technical Activities",
+            "Office Administrative, Office Support And Other Business Support Activities",
+            "Repair Of Computers And Personal And Household Goods",
+            "Other Personal Service Activities",
+            "Crop And Animal Production, Hunting And Related Service Activities",
+            "Other Mining And Quarrying"
+        ]
+        
+        # Keep only columns that exist in the dataframe
+        manuf_cols = [col for col in manuf_cols if col in df.columns]
         
         # Fill NaNs and ensure numeric types
         df[manuf_cols] = df[manuf_cols].fillna(0).apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -126,7 +162,7 @@ df, manufacturing_columns = load_data(DATA_FILE)
 
 if df is None:
     st.warning(f"⚠️ Data file `{DATA_FILE}` not found. Please place it in the root directory.")
-    st.info("Expecting columns: State, District, Latitude, Longitude, and sector data columns (indices 7-44).")
+    st.info("Expecting columns: State/UT Name, District Name, Latitude, Longitude, and sector data columns.")
     st.stop()
 
 # =====================================================
@@ -152,7 +188,7 @@ if selected_district != "All Districts":
 
 st.sidebar.markdown("---")
 
-# 2. Radius Filter (NEW FEATURE)
+# 2. Radius Filter
 st.sidebar.subheader("📍 Radius Filter")
 enable_radius = st.sidebar.checkbox("Enable Distance-Based Filter", value=False)
 
