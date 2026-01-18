@@ -504,7 +504,10 @@ if selected_columns:
     st.caption(filter_info)
 
 # 1. Key Metrics Row
-if selected_columns and not df_filtered.empty:
+# Check if user has made an active selection (not just default "All")
+has_active_selection = not (selected_sector == "All Sectors" and selected_subsector == "All Subsectors")
+
+if selected_columns and not df_filtered.empty and has_active_selection:
     total_units = df_filtered[selected_columns].sum().sum()
     
     district_sums = df_filtered.groupby("District")[selected_columns].sum().sum(axis=1)
