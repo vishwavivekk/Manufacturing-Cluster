@@ -396,54 +396,60 @@ st.sidebar.markdown("---")
 # 3. Sector-Subsector Filters
 st.sidebar.subheader("🏭 Industry Sectors & Subsectors")
 
-filter_mode = st.sidebar.radio(
-    "Filter By:",
-    ["Sectors (Aggregated)", "Subsectors (Detailed)"],
-    help="Choose to filter by main sectors or detailed subsectors"
+# Build sector options with subsector counts
+sector_subsector_available = {}
+for sector, subsectors in SECTOR_SUBSECTOR_MAP.items():
+    available_subsectors = []
+    for subsector in subsectors:
+        if subsector in subsector_columns and df_filtered[subsector].sum() > 0:
+            available_subsectors.append(subsector)
+    if available_subsectors:
+        sector_subsector_available[sector] = available_subsectors
+
+# Sector Selection
+sector_options = ["All Sectors"] + sorted(sector_subsector_available.keys())
+selected_sector = st.sidebar.selectbox(
+    "Select Sector",
+    options=sector_options,
+    help="Choose a main industry sector"
 )
 
-if filter_mode == "Sectors (Aggregated)":
-    # Get active sectors based on subsector data
-    active_sectors = []
-    for sector, subsectors in SECTOR_SUBSECTOR_MAP.items():
-        sector_total = 0
-        for subsector in subsectors:
-            if subsector in subsector_columns:
-                sector_total += df_filtered[subsector].sum()
-        if sector_total > 0:
-            active_sectors.append(sector)
-    
-    selected_sectors = st.sidebar.multiselect(
-        "Choose Sectors",
-        options=sorted(active_sectors),
-        default=sorted(active_sectors)[:1] if active_sectors else [],
-        help="Select main sectors - data will be aggregated from subsectors"
-    )
-    
-    # Get all subsectors for selected sectors
-    selected_columns = []
-    for sector in selected_sectors:
-        for subsector in SECTOR_SUBSECTOR_MAP.get(sector, []):
-            if subsector in subsector_columns:
-                selected_columns.append(subsector)
+# Subsector Selection based on selected sector
+if selected_sector == "All Sectors":
+    subsector_options = ["All Subsectors"]
+    # Get all available subsectors across all sectors
+    all_subsectors = []
+    for subsectors in sector_subsector_available.values():
+        all_subsectors.extend(subsectors)
+    subsector_options.extend(sorted(set(all_subsectors)))
+else:
+    subsector_options = ["All Subsectors"] + sorted(sector_subsector_available.get(selected_sector, []))
 
-else:  # Subsectors (Detailed)
-    # Get active subsectors
-    if not df_filtered.empty:
-        current_subsector_sums = df_filtered[subsector_columns].sum()
-        active_subsectors = current_subsector_sums[current_subsector_sums > 0].index.tolist()
+selected_subsector = st.sidebar.selectbox(
+    "Select Subsector",
+    options=subsector_options,
+    help="Choose a specific subsector (or All to aggregate)"
+)
+
+# Determine which columns to use based on selection
+if selected_sector == "All Sectors":
+    if selected_subsector == "All Subsectors":
+        # Show all available subsectors
+        selected_columns = [col for col in subsector_columns if df_filtered[col].sum() > 0]
+        selected_sectors = list(sector_subsector_available.keys())
     else:
-        active_subsectors = []
-    
-    selected_columns = st.sidebar.multiselect(
-        "Choose Subsectors",
-        options=sorted(active_subsectors),
-        default=sorted(active_subsectors)[:1] if active_subsectors else [],
-        help="Select specific subsectors for detailed analysis"
-    )
-    
-    # Determine which sectors are represented
-    selected_sectors = list(set([subsector_to_sector.get(col, "Unknown") for col in selected_columns]))
+        # Show specific subsector across all sectors
+        selected_columns = [selected_subsector] if selected_subsector in subsector_columns else []
+        selected_sectors = [subsector_to_sector.get(selected_subsector, "Unknown")]
+else:
+    if selected_subsector == "All Subsectors":
+        # Show all subsectors within the selected sector
+        selected_columns = sector_subsector_available.get(selected_sector, [])
+        selected_sectors = [selected_sector]
+    else:
+        # Show specific subsector
+        selected_columns = [selected_subsector] if selected_subsector in subsector_columns else []
+        selected_sectors = [selected_sector]
 
 st.sidebar.markdown("---")
 
@@ -488,10 +494,13 @@ else:
 st.title(f"🏭 {cluster_title}")
 
 # Display filter mode info
-if selected_sectors:
-    filter_info = f"**View Mode:** {filter_mode} | **Selected:** {', '.join(selected_sectors[:3])}"
-    if len(selected_sectors) > 3:
-        filter_info += f" + {len(selected_sectors) - 3} more"
+if selected_columns:
+    if selected_sector == "All Sectors" and selected_subsector == "All Subsectors":
+        filter_info = f"**View:** All Sectors & Subsectors"
+    elif selected_subsector == "All Subsectors":
+        filter_info = f"**Sector:** {selected_sector} (All Subsectors)"
+    else:
+        filter_info = f"**Sector:** {selected_sector} | **Subsector:** {selected_subsector}"
     st.caption(filter_info)
 
 # 1. Key Metrics Row
@@ -588,10 +597,12 @@ if selected_columns and not df_filtered.empty:
             dominant_val = row_data.max()
             
             # Determine sector for coloring
-            if filter_mode == "Sectors (Aggregated)":
+            if selected_subsector == "All Subsectors":
+                # Color by sector when showing all subsectors
                 color_key = subsector_to_sector.get(dominant_item, dominant_item)
             else:
-                color_key = dominant_item
+                # Color by the selected item
+                color_key = selected_sector if selected_sector != "All Sectors" else subsector_to_sector.get(dominant_item, dominant_item)
             
             radius = 5 + (dominant_val / max_val) * 15
 
@@ -630,11 +641,24 @@ if selected_columns and not df_filtered.empty:
 
         # CUSTOM LEGEND
         legend_items = ""
-        legend_keys = selected_sectors if filter_mode == "Sectors (Aggregated)" else selected_columns[:10]
+        
+        # Determine what to show in legend
+        if selected_subsector == "All Subsectors" and selected_sector != "All Sectors":
+            # Show subsectors for the selected sector
+            legend_keys = selected_columns[:15]
+            legend_title = f"{selected_sector}"
+        elif selected_sector == "All Sectors" and selected_subsector == "All Subsectors":
+            # Show main sectors
+            legend_keys = selected_sectors[:15]
+            legend_title = "Main Sectors"
+        else:
+            # Show the specific subsector
+            legend_keys = [selected_subsector] if selected_subsector != "All Subsectors" else selected_columns[:10]
+            legend_title = "Selected Subsector"
         
         for item in legend_keys:
             color = get_sector_color(item)
-            display_name = item if len(item) < 40 else item[:37] + "..."
+            display_name = item if len(item) < 45 else item[:42] + "..."
             legend_items += f"""
                 <div style='display: flex; align-items: center; margin-bottom: 4px;'>
                     <span style='background:{color}; width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:8px;'></span>
@@ -642,8 +666,8 @@ if selected_columns and not df_filtered.empty:
                 </div>
             """
         
-        if filter_mode == "Subsectors (Detailed)" and len(selected_columns) > 10:
-            legend_items += f"<div style='font-size:10px; color:gray; margin-top:5px;'>+ {len(selected_columns) - 10} more subsectors</div>"
+        if len(selected_columns) > len(legend_keys):
+            legend_items += f"<div style='font-size:10px; color:gray; margin-top:5px;'>+ {len(selected_columns) - len(legend_keys)} more</div>"
         
         legend_html = f"""
         <div style="
@@ -653,7 +677,7 @@ if selected_columns and not df_filtered.empty:
             z-index: 9999; border-radius: 8px; padding: 10px; 
             box-shadow: 0 0 15px rgba(0,0,0,0.1); overflow-y: auto;
             border: 1px solid #ddd;">
-            <div style="font-weight: bold; margin-bottom: 5px;">Legend - {filter_mode.split()[0]}</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Legend - {legend_title}</div>
             {legend_items}
         </div>
         """
