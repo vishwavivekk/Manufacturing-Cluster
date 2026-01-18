@@ -511,18 +511,18 @@ if selected_columns and not df_filtered.empty:
     if not district_sums.empty:
         top_district = district_sums.idxmax()
     else:
-        top_district = "N/A"
+        top_district = "-"
         
     active_locs = len(df_filtered[df_filtered[selected_columns].sum(axis=1) > 0])
 else:
     total_units = 0
-    top_district = "N/A"
+    top_district = "-"
     active_locs = 0
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Selected Region", selected_district if selected_district != "All Districts" else selected_state)
-col2.metric("Total Units", f"{int(total_units):,}")
-col3.metric("Active Clusters", active_locs)
+col2.metric("Total Units", f"{int(total_units):,}" if total_units > 0 else "-")
+col3.metric("Active Clusters", active_locs if active_locs > 0 else "-")
 col4.metric("Top District", top_district)
 
 st.markdown("---")
