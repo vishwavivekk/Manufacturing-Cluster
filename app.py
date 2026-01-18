@@ -253,18 +253,50 @@ def load_data(path: str):
         return None, None, None
 
     try:
-        df = pd.read_excel(path)
+        # Read Excel with multi-row header (sector in row 0, subsector in row 1)
+        df = pd.read_excel(path, header=[0, 1])
+        
+        # Extract sector and subsector names
+        sector_row = df.columns.get_level_values(0)
+        subsector_row = df.columns.get_level_values(1)
+        
+        # Create new column names - use subsector name as primary, keep sector for mapping
+        new_columns = []
+        subsector_to_sector = {}
+        
+        for i, (sector, subsector) in enumerate(zip(sector_row, subsector_row)):
+            sector = str(sector).strip()
+            subsector = str(subsector).strip()
+            
+            # For the first 4 columns (State, District, Lat, Lon)
+            if i < 4:
+                if 'State' in sector or 'State' in subsector:
+                    new_columns.append('State')
+                elif 'District' in sector or 'District' in subsector:
+                    new_columns.append('District')
+                elif 'Latitude' in sector or 'Latitude' in subsector:
+                    new_columns.append('Latitude')
+                elif 'Longitude' in sector or 'Longitude' in subsector:
+                    new_columns.append('Longitude')
+                else:
+                    new_columns.append(sector if sector != 'nan' else subsector)
+            else:
+                # For manufacturing columns, use subsector name
+                col_name = subsector if subsector != 'nan' and subsector != '' else sector
+                new_columns.append(col_name)
+                subsector_to_sector[col_name] = sector
+        
+        # Apply new column names
+        df.columns = new_columns
+        
+        # Standardize column names
         df.columns = [str(c).strip() for c in df.columns]
-
-        required_cols = ["State/UT Name", "District Name", "Latitude", "Longitude"]
+        
+        required_cols = ["State", "District", "Latitude", "Longitude"]
         if not all(col in df.columns for col in required_cols):
             st.error(f"Data missing required columns: {required_cols}")
+            st.error(f"Found columns: {df.columns.tolist()}")
             st.stop()
-
-        df = df.rename(columns={
-            "State/UT Name": "State",
-            "District Name": "District"
-        })
 
         df["State"] = df["State"].astype(str).str.strip()
         df["District"] = df["District"].astype(str).str.strip()
@@ -278,15 +310,11 @@ def load_data(path: str):
         # Drop rows without geo-coordinates
         df = df.dropna(subset=["Latitude", "Longitude"])
         
-        # Create a mapping of subsector to sector
-        subsector_to_sector = {}
-        for sector, subsectors in SECTOR_SUBSECTOR_MAP.items():
-            for subsector in subsectors:
-                subsector_to_sector[subsector] = sector
-        
         return df, subsector_cols, subsector_to_sector
     except Exception as e:
         st.error(f"Error reading file: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         st.stop()
 
 # =====================================================
