@@ -507,16 +507,19 @@ if selected_columns:
 # Check if user has made an active selection (not just default "All")
 has_active_selection = not (selected_sector == "All Sectors" and selected_subsector == "All Subsectors")
 
-if selected_columns and not df_filtered.empty and has_active_selection:
+if selected_columns and not df_filtered.empty:
     total_units = df_filtered[selected_columns].sum().sum()
+    active_locs = len(df_filtered[df_filtered[selected_columns].sum(axis=1) > 0])
     
-    district_sums = df_filtered.groupby("District")[selected_columns].sum().sum(axis=1)
-    if not district_sums.empty:
-        top_district = district_sums.idxmax()
+    # Only show top district if user made a specific selection
+    if has_active_selection:
+        district_sums = df_filtered.groupby("District")[selected_columns].sum().sum(axis=1)
+        if not district_sums.empty:
+            top_district = district_sums.idxmax()
+        else:
+            top_district = "-"
     else:
         top_district = "-"
-        
-    active_locs = len(df_filtered[df_filtered[selected_columns].sum(axis=1) > 0])
 else:
     total_units = 0
     top_district = "-"
