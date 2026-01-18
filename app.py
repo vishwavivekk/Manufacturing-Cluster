@@ -645,39 +645,39 @@ if selected_columns and not df_filtered.empty:
         # Determine what to show in legend
         if selected_subsector == "All Subsectors" and selected_sector != "All Sectors":
             # Show subsectors for the selected sector
-            legend_keys = selected_columns[:15]
-            legend_title = f"{selected_sector}"
+            legend_keys = selected_columns[:10]
+            legend_title = f"{selected_sector[:25]}..." if len(selected_sector) > 25 else selected_sector
         elif selected_sector == "All Sectors" and selected_subsector == "All Subsectors":
             # Show main sectors
-            legend_keys = selected_sectors[:15]
-            legend_title = "Main Sectors"
+            legend_keys = selected_sectors[:12]
+            legend_title = "Sectors"
         else:
             # Show the specific subsector
-            legend_keys = [selected_subsector] if selected_subsector != "All Subsectors" else selected_columns[:10]
-            legend_title = "Selected Subsector"
+            legend_keys = [selected_subsector] if selected_subsector != "All Subsectors" else selected_columns[:8]
+            legend_title = "Subsector"
         
         for item in legend_keys:
             color = get_sector_color(item)
-            display_name = item if len(item) < 45 else item[:42] + "..."
+            display_name = item if len(item) < 30 else item[:27] + "..."
             legend_items += f"""
-                <div style='display: flex; align-items: center; margin-bottom: 4px;'>
-                    <span style='background:{color}; width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:8px;'></span>
-                    <span style='font-size:11px;'>{display_name}</span>
+                <div style='display: flex; align-items: center; margin-bottom: 3px;'>
+                    <span style='background:{color}; width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0;'></span>
+                    <span style='font-size:10px; line-height:1.2;'>{display_name}</span>
                 </div>
             """
         
         if len(selected_columns) > len(legend_keys):
-            legend_items += f"<div style='font-size:10px; color:gray; margin-top:5px;'>+ {len(selected_columns) - len(legend_keys)} more</div>"
+            legend_items += f"<div style='font-size:9px; color:gray; margin-top:4px; font-style:italic;'>+{len(selected_columns) - len(legend_keys)} more</div>"
         
         legend_html = f"""
         <div style="
             position: fixed; 
-            bottom: 20px; left: 20px; width: 250px; max-height: 350px; 
-            background-color: rgba(255, 255, 255, 0.95); 
-            z-index: 9999; border-radius: 8px; padding: 10px; 
-            box-shadow: 0 0 15px rgba(0,0,0,0.1); overflow-y: auto;
-            border: 1px solid #ddd;">
-            <div style="font-weight: bold; margin-bottom: 5px;">Legend - {legend_title}</div>
+            bottom: 15px; left: 15px; width: 180px; max-height: 280px; 
+            background-color: rgba(255, 255, 255, 0.92); 
+            z-index: 9999; border-radius: 6px; padding: 8px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); overflow-y: auto;
+            border: 1px solid #ccc;">
+            <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px; color: #333;">{legend_title}</div>
             {legend_items}
         </div>
         """
