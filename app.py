@@ -504,32 +504,17 @@ if selected_columns:
     st.caption(filter_info)
 
 # 1. Key Metrics Row
-# Check if user has made an active selection (not just default "All")
-has_active_selection = not (selected_sector == "All Sectors" and selected_subsector == "All Subsectors")
-
 if selected_columns and not df_filtered.empty:
     total_units = df_filtered[selected_columns].sum().sum()
     active_locs = len(df_filtered[df_filtered[selected_columns].sum(axis=1) > 0])
-    
-    # Only show top district if user made a specific selection
-    if has_active_selection:
-        district_sums = df_filtered.groupby("District")[selected_columns].sum().sum(axis=1)
-        if not district_sums.empty:
-            top_district = district_sums.idxmax()
-        else:
-            top_district = "-"
-    else:
-        top_district = "-"
 else:
     total_units = 0
-    top_district = "-"
     active_locs = 0
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 col1.metric("Selected Region", selected_district if selected_district != "All Districts" else selected_state)
 col2.metric("Total Units", f"{int(total_units):,}" if total_units > 0 else "-")
 col3.metric("Active Clusters", active_locs if active_locs > 0 else "-")
-col4.metric("Top District", top_district)
 
 st.markdown("---")
 
