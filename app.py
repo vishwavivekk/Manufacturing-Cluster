@@ -292,7 +292,7 @@ def load_data(path: str):
 # =====================================================
 # DATA LOADING
 # =====================================================
-DATA_FILE = os.getenv("DATA_FILE_PATH", "MOSPI DATA.xlsx")
+DATA_FILE = os.getenv("DATA_FILE_PATH", "Annexure with 3digit.xlsx")
 df, subsector_columns, subsector_to_sector = load_data(DATA_FILE)
 
 if df is None:
