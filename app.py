@@ -653,22 +653,22 @@ if selected_columns and not df_filtered.empty:
             legend_items += f"""
                 <div style='display: flex; align-items: center; margin-bottom: 3px;'>
                     <span style='background:{color}; width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0;'></span>
-                    <span style='font-size:10px; line-height:1.2;'>{display_name}</span>
+                    <span style='font-size:10px; line-height:1.2; color:#000;'>{display_name}</span>
                 </div>
             """
         
         if len(selected_columns) > len(legend_keys):
-            legend_items += f"<div style='font-size:9px; color:gray; margin-top:4px; font-style:italic;'>+{len(selected_columns) - len(legend_keys)} more</div>"
+            legend_items += f"<div style='font-size:9px; color:#666; margin-top:4px; font-style:italic;'>+{len(selected_columns) - len(legend_keys)} more</div>"
         
         legend_html = f"""
         <div style="
             position: fixed; 
             bottom: 15px; left: 15px; width: 180px; max-height: 280px; 
-            background-color: rgba(255, 255, 255, 0.92); 
+            background-color: rgba(255, 255, 255, 0.98); 
             z-index: 9999; border-radius: 6px; padding: 8px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.15); overflow-y: auto;
             border: 1px solid #ccc;">
-            <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px; color: #333;">{legend_title}</div>
+            <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px; color: #000;">{legend_title}</div>
             {legend_items}
         </div>
         """
