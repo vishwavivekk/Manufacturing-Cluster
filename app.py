@@ -630,50 +630,6 @@ if selected_columns and not df_filtered.empty:
                 tooltip=f"{row['District']}: {int(row['Total_Selected'])} units ({row['Size_Category']})"
             ).add_to(m)
 
-        # CUSTOM LEGEND
-        legend_items = ""
-        
-        # Determine what to show in legend
-        if selected_subsector == "All Subsectors" and selected_sector != "All Sectors":
-            # Show subsectors for the selected sector
-            legend_keys = selected_columns[:10]
-            legend_title = f"{selected_sector[:25]}..." if len(selected_sector) > 25 else selected_sector
-        elif selected_sector == "All Sectors" and selected_subsector == "All Subsectors":
-            # Show main sectors
-            legend_keys = selected_sectors[:12]
-            legend_title = "Sectors"
-        else:
-            # Show the specific subsector
-            legend_keys = [selected_subsector] if selected_subsector != "All Subsectors" else selected_columns[:8]
-            legend_title = "Subsector"
-        
-        for item in legend_keys:
-            color = get_sector_color(item)
-            display_name = item if len(item) < 30 else item[:27] + "..."
-            legend_items += f"""
-                <div style='display: flex; align-items: center; margin-bottom: 3px;'>
-                    <span style='background:{color}; width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0;'></span>
-                    <span style='font-size:10px; line-height:1.2; color:#000;'>{display_name}</span>
-                </div>
-            """
-        
-        if len(selected_columns) > len(legend_keys):
-            legend_items += f"<div style='font-size:9px; color:#666; margin-top:4px; font-style:italic;'>+{len(selected_columns) - len(legend_keys)} more</div>"
-        
-        legend_html = f"""
-        <div style="
-            position: fixed; 
-            bottom: 15px; left: 15px; width: 180px; max-height: 280px; 
-            background-color: rgba(255, 255, 255, 0.98); 
-            z-index: 9999; border-radius: 6px; padding: 8px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15); overflow-y: auto;
-            border: 1px solid #ccc;">
-            <div style="font-weight: 600; margin-bottom: 6px; font-size: 11px; color: #000;">{legend_title}</div>
-            {legend_items}
-        </div>
-        """
-        m.get_root().html.add_child(folium.Element(legend_html))
-
 else:
     st.info("👈 Please select at least one sector or subsector from the sidebar to visualize data.")
 
