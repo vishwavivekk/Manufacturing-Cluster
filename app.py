@@ -559,4 +559,239 @@ CORRIDOR_DATA = {
     "Bengaluru Mumbai Industrial Corridor (BMIC)": [
         (19.0760, 72.8777), # Mumbai
         (18.5204, 73.8567), # Pune
-        (16
+        (16.8302, 74.6733), # Sangli/Miraj
+        (15.8497, 74.4977), # Belagavi
+        (15.3647, 75.1240), # Hubballi
+        (14.2261, 76.4000), # Chitradurga
+        (13.3409, 77.1000), # Tumakuru
+        (12.9716, 77.5946)  # Bengaluru
+    ],
+    "Chennai Bengaluru Industrial Corridor (CBIC)": [
+        (13.0827, 80.2707), # Chennai
+        (12.9165, 79.1325), # Vellore
+        (12.7409, 77.8253), # Hosur
+        (12.9716, 77.5946)  # Bengaluru
+    ],
+    "Delhi Mumbai Industrial Corridor (DMIC)": [
+        (28.6139, 77.2090), # Delhi
+        (28.0229, 76.3547), # Neemrana
+        (26.9124, 75.7873), # Jaipur
+        (26.4499, 74.6399), # Ajmer
+        (24.5854, 73.7125), # Udaipur
+        (23.0225, 72.5714), # Ahmedabad
+        (22.3072, 73.1812), # Vadodara
+        (21.1702, 72.8311), # Surat
+        (19.0760, 72.8777)  # Mumbai
+    ],
+    "Delhi Nagpur Industrial Corridor (DNIC)": [
+        (28.6139, 77.2090), # Delhi
+        (27.1767, 78.0081), # Agra
+        (26.2124, 78.1772), # Gwalior
+        (23.8388, 78.7378), # Sagar
+        (21.1458, 79.0882)  # Nagpur
+    ],
+    "Extension of CBIC to Kochi Via Coimbatore": [
+        (12.9716, 77.5946), # Bengaluru
+        (11.6643, 78.1460), # Salem
+        (11.0168, 76.9558), # Coimbatore
+        (10.5276, 76.2144), # Thrissur
+        (9.9312, 76.2673)   # Kochi
+    ],
+    "Hyderabad Bengaluru Industrial Corridor (HBIC)": [
+        (17.3850, 78.4867), # Hyderabad
+        (15.8281, 78.0373), # Kurnool
+        (14.6819, 77.6006), # Anantapur
+        (12.9716, 77.5946)  # Bengaluru
+    ],
+    "Hyderabad Nagpur Industrial Corridor (HNIC)": [
+        (17.3850, 78.4867), # Hyderabad
+        (18.4386, 79.1288), # Karimnagar
+        (19.6641, 78.5320), # Adilabad
+        (21.1458, 79.0882)  # Nagpur
+    ],
+    "Hyderabad Warangal Industrial Corridor (HWIC)": [
+        (17.3850, 78.4867), # Hyderabad
+        (17.6214, 79.2930), # Bhongir
+        (17.9689, 79.5941)  # Warangal
+    ],
+    "Odisha Economic Corridor (OEC)": [
+        (20.2961, 85.8245), # Bhubaneswar
+        (20.4625, 85.8828), # Cuttack
+        (21.2333, 85.1111), # Angul
+        (21.8456, 84.0253)  # Jharsuguda
+    ],
+    "Vizag Chennai Industrial Corridor (VCIC)": [
+        (17.6868, 83.2185), # Visakhapatnam (Vizag)
+        (16.5062, 80.6480), # Vijayawada
+        (14.4426, 79.9865), # Nellore
+        (13.0827, 80.2707)  # Chennai
+    ]
+}
+
+# 2. Define Colors (Matching your screenshot)
+CORRIDOR_COLORS = {
+    "Amritsar Kolkata Industrial Corridor (AKIC)": "#FFA500",      # Orange
+    "Bengaluru Mumbai Industrial Corridor (BMIC)": "#00008B",      # Dark Blue
+    "Chennai Bengaluru Industrial Corridor (CBIC)": "#4169E1",     # Royal Blue
+    "Delhi Mumbai Industrial Corridor (DMIC)": "#FF0000",          # Red
+    "Delhi Nagpur Industrial Corridor (DNIC)": "#7CFC00",          # Lawn Green
+    "Extension of CBIC to Kochi Via Coimbatore": "#FF1493",        # Deep Pink
+    "Hyderabad Bengaluru Industrial Corridor (HBIC)": "#8B0000",   # Dark Red
+    "Hyderabad Nagpur Industrial Corridor (HNIC)": "#DEB887",      # Burlywood/Tan
+    "Hyderabad Warangal Industrial Corridor (HWIC)": "#DAA520",    # Goldenrod
+    "Odisha Economic Corridor (OEC)": "#FF4500",                   # Orange Red
+    "Vizag Chennai Industrial Corridor (VCIC)": "#228B22"          # Forest Green
+}
+
+# 3. Create FeatureGroup and Add Lines
+corridor_layer = folium.FeatureGroup(name="Industrial Corridors", show=True)
+
+for name, coords in CORRIDOR_DATA.items():
+    color = CORRIDOR_COLORS.get(name, "gray")
+    
+    # Draw the line
+    folium.PolyLine(
+        locations=coords,
+        color=color,
+        weight=4,
+        opacity=0.8,
+        tooltip=name,
+        popup=folium.Popup(f"<b>{name}</b>", max_width=300)
+    ).add_to(corridor_layer)
+    
+    # Add start/end dots for visual clarity
+    folium.CircleMarker(location=coords[0], radius=3, color=color, fill=True, fill_opacity=1).add_to(corridor_layer)
+    folium.CircleMarker(location=coords[-1], radius=3, color=color, fill=True, fill_opacity=1).add_to(corridor_layer)
+
+corridor_layer.add_to(m)
+
+# 4. Add Layer Control (to toggle corridors on/off)
+folium.LayerControl(collapsed=False).add_to(m)
+
+# =====================================================
+# END INDUSTRIAL CORRIDOR OVERLAY
+# =====================================================
+
+if enable_radius and 'center_lat' in locals():
+    folium.Circle(
+        location=[center_lat, center_lon],
+        radius=radius_km * 1000,
+        color='blue',
+        fill=True,
+        fillColor='blue',
+        fillOpacity=0.1,
+        weight=2,
+        popup=f"{center_district} - {radius_km}km radius"
+    ).add_to(m)
+    
+    folium.Marker(
+        location=[center_lat, center_lon],
+        popup=f"<b>Center: {center_district}</b>",
+        icon=folium.Icon(color='blue', icon='info-sign')
+    ).add_to(m)
+
+if selected_columns and not df_filtered.empty:
+    df_map = df_filtered.copy()
+    df_map["Total_Selected"] = df_map[selected_columns].sum(axis=1)
+    df_map = df_map[df_map["Total_Selected"] > 0]
+
+    if map_mode == "Density Heatmap":
+        heat_data = df_map[["Latitude", "Longitude", "Total_Selected"]].values.tolist()
+        HeatMap(
+            heat_data, 
+            radius=20, 
+            blur=15, 
+            min_opacity=0.3,
+            gradient={0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        ).add_to(m)
+        
+        legend_html = '''
+             <div style="position: fixed; bottom: 50px; left: 50px; z-index:9999; font-size:14px;
+             background-color: white; padding: 10px; border-radius: 5px; border: 1px solid grey;">
+             <b>Heatmap Intensity</b><br>
+             aggregated volume of selected sectors/subsectors
+             </div>
+        '''
+        m.get_root().html.add_child(folium.Element(legend_html))
+
+    else:
+        max_val = df_map["Total_Selected"].max() if not df_map.empty else 1
+        
+        for idx, row in df_map.iterrows():
+            row_data = row[selected_columns]
+            dominant_item = row_data.idxmax()
+            dominant_val = row_data.max()
+            
+            # Determine sector for coloring
+            if selected_subsector == "All Subsectors":
+                # Color by sector when showing all subsectors
+                color_key = subsector_to_sector.get(dominant_item, dominant_item)
+            else:
+                # Color by the selected item
+                color_key = selected_sector if selected_sector != "All Sectors" else subsector_to_sector.get(dominant_item, dominant_item)
+            
+            radius = 5 + (dominant_val / max_val) * 15
+
+            tooltip_html = f"""
+                <div style="font-family: sans-serif; min-width: 200px;">
+                    <h4 style="margin:0;">{row['District']}</h4>
+                    <small style="color:gray;">{row['State']}</small>
+                    <hr style="margin: 5px 0;">
+                    <b>Size:</b> {row['Size_Category']}<br>
+                    <b>Dominant:</b> {dominant_item}<br>
+                    <b>Total Selected:</b> {int(row['Total_Selected'])}<br>
+            """
+            
+            if enable_radius and 'Distance_km' in row:
+                tooltip_html += f"<b>Distance:</b> {row['Distance_km']:.1f} km<br>"
+            
+            tooltip_html += "<div style='margin-top:5px; max-height:150px; overflow-y:auto;'>"
+            
+            for col in selected_columns:
+                val = row[col]
+                if val > 0:
+                    tooltip_html += f"<div style='display:flex; justify-content:space-between;'><span style='font-size:11px;'>{col}:</span> <b>{int(val)}</b></div>"
+            tooltip_html += "</div></div>"
+
+            folium.CircleMarker(
+                location=[row["Latitude"], row["Longitude"]],
+                radius=radius,
+                color=get_sector_color(color_key),
+                fill=True,
+                fill_color=get_sector_color(color_key),
+                fill_opacity=0.7,
+                weight=1,
+                popup=folium.Popup(tooltip_html, max_width=350),
+                tooltip=f"{row['District']}: {int(row['Total_Selected'])} units ({row['Size_Category']})"
+            ).add_to(m)
+
+else:
+    st.info("👈 Please select at least one sector or subsector from the sidebar to visualize data.")
+
+st_folium(m, height=600, use_container_width=True)
+
+# =====================================================
+# DATA EXPORT
+# =====================================================
+with st.expander("📊 View & Download Data", expanded=False):
+    if selected_columns and not df_filtered.empty:
+        cols_to_show = ["State", "District", "Size_Category"] + selected_columns
+        if enable_radius and 'Distance_km' in df_filtered.columns:
+            cols_to_show.insert(3, "Distance_km")
+        
+        export_df = df_filtered[cols_to_show].copy()
+        
+        export_df["Total_Selected"] = export_df[selected_columns].sum(axis=1)
+        export_df = export_df[export_df["Total_Selected"] > 0].sort_values("Total_Selected", ascending=False)
+        
+        st.dataframe(export_df, use_container_width=True)
+        
+        csv = export_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Filtered Data as CSV",
+            data=csv,
+            file_name=f"manufacturing_data_{selected_state}_{selected_district}.csv",
+            mime="text/csv",
+        )
+    else:
+        st.write("No data available for the current selection.")
