@@ -27,6 +27,11 @@ COLOR_PALETTE = ["#E63946","#1D3557","#457B9D","#A8DADC","#2A9D8F","#F4A261","#E
 # =========================
 # UTILS
 # =========================
+df_filtered = df_filtered[
+    (df_filtered["Latitude"].between(6.0, 37.5)) &
+    (df_filtered["Longitude"].between(68.0, 97.5))
+]
+
 def haversine_distance(lat1, lon1, lat2, lon2):
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1; dlon = lon2 - lon1
