@@ -1,5 +1,7 @@
 streamlit
-pandas
 folium
 streamlit-folium
+pandas
 openpyxl
+shapely>=2.0.0
+
