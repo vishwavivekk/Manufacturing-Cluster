@@ -461,44 +461,39 @@ if na_mode:
     if not enable_s1 and not enable_s2:
         # Baseline: sector selected, no sliders active
         k1, k2, k3 = st.columns(3)
-        k1.metric("Total Units Across India",    f"{kpi_sector_total:,}",
-                  help="Sum of all units in this sector across every district in India")
-        k2.metric("Districts with This Sector",  f"{kpi_visible_locs:,}",
-                  help="Number of districts that have at least 1 unit in the selected sector")
-        k3.metric("Largest Single District",
+        k1.metric("Total Units",       f"{kpi_sector_total:,}",
+                  help="All units in this sector across every district in India")
+        k2.metric("Districts",         f"{kpi_visible_locs:,}",
+                  help="Districts that have at least 1 unit in this sector")
+        k3.metric("Largest District",
                   f"{int(na_df_final['NA_Units'].max()):,}" if kpi_visible_locs > 0 else "—",
-                  help="The highest unit count found in any single district for this sector")
+                  help="Highest unit count in any single district")
 
     elif enable_s1 and not enable_s2:
-        # Slider 1 active: focus on threshold
-        dropped = kpi_sector_total - kpi_visible_locs  # locations dropped is less meaningful; use unit diff
+        # Slider 1 active
         k1, k2, k3 = st.columns(3)
-        k1.metric("Districts Shown on Map",      f"{kpi_visible_locs:,}",
+        k1.metric("On Map",            f"{kpi_visible_locs:,}",
                   help=f"Districts with ≥ {min_units_val} units in this sector")
-        k2.metric("Units in These Districts",    f"{kpi_visible_units:,}",
-                  help="Total units summed across the visible districts only")
-        k3.metric("Districts Below Threshold",
-                  f"{len(na_df) - kpi_visible_locs:,}",
-                  help=f"Districts that have units but fewer than {min_units_val} — hidden from map")
+        k2.metric("Units (Visible)",   f"{kpi_visible_units:,}",
+                  help="Total units across the districts shown on the map")
+        k3.metric("Below Threshold",   f"{len(na_df) - kpi_visible_locs:,}",
+                  help=f"Districts hidden because they have fewer than {min_units_val} units")
 
     elif enable_s2 and neighbour_counts is not None:
-        # Slider 2 active (with or without S1)
-        has_neighbours   = sum(1 for c in neighbour_counts if c > 0)
-        no_neighbours    = kpi_visible_locs - has_neighbours
-        max_nb           = max(neighbour_counts) if neighbour_counts else 0
-        avg_nb           = round(sum(neighbour_counts) / len(neighbour_counts), 1) if neighbour_counts else 0
+        # Slider 2 active
+        has_neighbours = sum(1 for c in neighbour_counts if c > 0)
+        no_neighbours  = kpi_visible_locs - has_neighbours
+        max_nb         = max(neighbour_counts) if neighbour_counts else 0
 
         k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Districts on Map",            f"{kpi_visible_locs:,}",
-                  help="Total districts visible after all filters")
-        k2.metric(f"Have Neighbours within {na_radius_km} km",
-                  f"{has_neighbours:,}",
-                  help="Districts whose radius circle overlaps with at least one other district in this sector")
-        k3.metric(f"Stand-alone (no neighbour within {na_radius_km} km)",
-                  f"{no_neighbours:,}",
-                  help="Districts whose radius circle has no other same-sector district inside it")
-        k4.metric("Busiest Neighbourhood",       f"{max_nb} districts",
-                  help=f"The single district that has the most same-sector neighbours within {na_radius_km} km")
+        k1.metric("Districts",         f"{kpi_visible_locs:,}",
+                  help="Total districts visible on the map")
+        k2.metric(f"In Range ({na_radius_km} km)", f"{has_neighbours:,}",
+                  help="Districts that have ≥ 1 same-sector district inside their radius circle")
+        k3.metric("No Neighbour",      f"{no_neighbours:,}",
+                  help=f"Districts with zero same-sector neighbours within {na_radius_km} km")
+        k4.metric("Max Neighbours",    f"{max_nb}",
+                  help=f"Most same-sector neighbours found around any single district")
 
     st.markdown("---")
 
