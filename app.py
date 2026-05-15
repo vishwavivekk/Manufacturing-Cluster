@@ -453,44 +453,52 @@ if na_mode:
         neighbour_counts = counts
 
     # ── KPIs ──────────────────────────────────────────────────────
-    # Always show: total units in sector (whole India)
-    kpi_sector_total   = int(na_df["NA_Units"].sum())
-    # After slider 1: locations visible on map
-    kpi_visible_locs   = len(na_df_final)
-    kpi_visible_units  = int(na_df_final["NA_Units"].sum())
+    kpi_sector_total  = int(na_df["NA_Units"].sum())
+    kpi_visible_locs  = len(na_df_final)
+    kpi_visible_units = int(na_df_final["NA_Units"].sum())
 
-    if enable_s1 and min_units_val:
-        # Clusters = distinct visible locations (each ≥ threshold)
-        kpi_label3 = f"Locations ≥ {min_units_val} Units"
-        kpi_val3   = kpi_visible_locs
-    else:
-        kpi_label3 = "Total Locations"
-        kpi_val3   = kpi_visible_locs
+    # Row 1 — always visible, plain language
+    if not enable_s1 and not enable_s2:
+        # Baseline: sector selected, no sliders active
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Total Units Across India",    f"{kpi_sector_total:,}",
+                  help="Sum of all units in this sector across every district in India")
+        k2.metric("Districts with This Sector",  f"{kpi_visible_locs:,}",
+                  help="Number of districts that have at least 1 unit in the selected sector")
+        k3.metric("Largest Single District",
+                  f"{int(na_df_final['NA_Units'].max()):,}" if kpi_visible_locs > 0 else "—",
+                  help="The highest unit count found in any single district for this sector")
 
-    if enable_s2 and neighbour_counts is not None and na_radius_km:
-        # Count locations that have at least 1 neighbour within radius (they form a cluster)
-        clustered = sum(1 for c in neighbour_counts if c > 0)
-        isolated  = kpi_visible_locs - clustered
-        kpi_label4 = f"Clustered (≥1 nbr/{na_radius_km}km)"
-        kpi_val4   = clustered
-    else:
-        kpi_label4 = "Avg Units / Location"
-        kpi_val4   = round(na_df_final["NA_Units"].mean(), 1) if kpi_visible_locs > 0 else 0
+    elif enable_s1 and not enable_s2:
+        # Slider 1 active: focus on threshold
+        dropped = kpi_sector_total - kpi_visible_locs  # locations dropped is less meaningful; use unit diff
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Districts Shown on Map",      f"{kpi_visible_locs:,}",
+                  help=f"Districts with ≥ {min_units_val} units in this sector")
+        k2.metric("Units in These Districts",    f"{kpi_visible_units:,}",
+                  help="Total units summed across the visible districts only")
+        k3.metric("Districts Below Threshold",
+                  f"{len(na_df) - kpi_visible_locs:,}",
+                  help=f"Districts that have units but fewer than {min_units_val} — hidden from map")
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total Units in Sector",   f"{kpi_sector_total:,}")
-    k2.metric("Units on Map (Filtered)", f"{kpi_visible_units:,}")
-    k3.metric(kpi_label3,                f"{kpi_val3:,}")
-    k4.metric(kpi_label4,                f"{kpi_val4:,}" if isinstance(kpi_val4, int) else f"{kpi_val4}")
+    elif enable_s2 and neighbour_counts is not None:
+        # Slider 2 active (with or without S1)
+        has_neighbours   = sum(1 for c in neighbour_counts if c > 0)
+        no_neighbours    = kpi_visible_locs - has_neighbours
+        max_nb           = max(neighbour_counts) if neighbour_counts else 0
+        avg_nb           = round(sum(neighbour_counts) / len(neighbour_counts), 1) if neighbour_counts else 0
 
-    # Extra neighbour KPIs when S2 active
-    if enable_s2 and neighbour_counts is not None:
-        avg_nb = round(sum(neighbour_counts) / len(neighbour_counts), 1) if neighbour_counts else 0
-        max_nb = max(neighbour_counts) if neighbour_counts else 0
-        nb_k1, nb_k2, nb_k3, _ = st.columns(4)
-        nb_k1.metric("Avg Neighbours / Location", avg_nb)
-        nb_k2.metric("Max Neighbours (any dot)",  max_nb)
-        nb_k3.metric("Isolated Locations",        isolated)
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Districts on Map",            f"{kpi_visible_locs:,}",
+                  help="Total districts visible after all filters")
+        k2.metric(f"Have Neighbours within {na_radius_km} km",
+                  f"{has_neighbours:,}",
+                  help="Districts whose radius circle overlaps with at least one other district in this sector")
+        k3.metric(f"Stand-alone (no neighbour within {na_radius_km} km)",
+                  f"{no_neighbours:,}",
+                  help="Districts whose radius circle has no other same-sector district inside it")
+        k4.metric("Busiest Neighbourhood",       f"{max_nb} districts",
+                  help=f"The single district that has the most same-sector neighbours within {na_radius_km} km")
 
     st.markdown("---")
 
@@ -513,44 +521,55 @@ if na_mode:
 
         max_units = na_df_final["NA_Units"].max() if not na_df_final.empty else 1
 
-        for _, row in na_df_final.iterrows():
-            bubble_r = 5 + (row["NA_Units"] / max_units) * 18
-            nb_val   = int(row["Neighbour_Count"]) if "Neighbour_Count" in row else None
+        # Distinct colors for radius circles so overlapping rings are easy to tell apart
+        CIRCLE_COLORS = [
+            "#E63946", "#2A9D8F", "#F4A261", "#6A4C93", "#457B9D",
+            "#8AC926", "#FFCA3A", "#E76F51", "#1D3557", "#A8DADC",
+            "#FF595E", "#6A994E", "#BC6C25", "#5E548E", "#0077B6",
+        ]
+
+        for idx, (_, row) in enumerate(na_df_final.iterrows()):
+            bubble_r   = 5 + (row["NA_Units"] / max_units) * 18
+            nb_val     = int(row["Neighbour_Count"]) if "Neighbour_Count" in row.index else None
+            ring_color = CIRCLE_COLORS[idx % len(CIRCLE_COLORS)]
 
             tip = (
                 f"<div style='font-family:sans-serif; min-width:190px;'>"
                 f"<b>{row['District']}</b><br>"
                 f"<small style='color:gray;'>{row['State']}</small>"
                 f"<hr style='margin:4px 0;'>"
-                f"<b>Units ({na_sector[:25]}…):</b> {int(row['NA_Units'])}"
+                f"<b>Units:</b> {int(row['NA_Units'])}"
             )
             if nb_val is not None:
-                tip += f"<br><b>Neighbours within {na_radius_km} km:</b> {nb_val}"
+                tip += f"<br><b>Same-sector districts within {na_radius_km} km:</b> {nb_val}"
             tip += "</div>"
 
             short_tip = f"{row['District']}: {int(row['NA_Units'])} units"
             if nb_val is not None:
-                short_tip += f" | {nb_val} neighbours"
+                short_tip += f" | {nb_val} neighbours in {na_radius_km} km"
 
-            # Draw radius circle on map (same as screenshot 1 style)
+            # Radius ring — unique color per district so rings are distinguishable
             if enable_s2 and na_radius_km:
                 folium.Circle(
                     location=[row["Latitude"], row["Longitude"]],
                     radius=na_radius_km * 1000,
-                    color=na_color,
+                    color=ring_color,
                     fill=True,
-                    fillColor=na_color,
-                    fillOpacity=0.04,
-                    weight=1.2,
-                    opacity=0.5,
-                    tooltip=f"{row['District']}: {nb_val} neighbours within {na_radius_km} km"
+                    fillColor=ring_color,
+                    fillOpacity=0.05,
+                    weight=1.8,
+                    opacity=0.75,
+                    tooltip=f"📍 {row['District']} reach: {na_radius_km} km"
+                             + (f" — {nb_val} neighbours inside" if nb_val is not None else "")
                 ).add_to(m)
 
+            # Dot marker — same color as its ring so you can link ring → dot
+            dot_color = ring_color if enable_s2 else na_color
             folium.CircleMarker(
                 location=[row["Latitude"], row["Longitude"]],
                 radius=bubble_r,
-                color=na_color,
-                fill=True, fill_color=na_color, fill_opacity=0.80, weight=1.5,
+                color=dot_color,
+                fill=True, fill_color=dot_color, fill_opacity=0.90, weight=2,
                 popup=folium.Popup(tip, max_width=300),
                 tooltip=short_tip
             ).add_to(m)
