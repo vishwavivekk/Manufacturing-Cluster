@@ -506,22 +506,6 @@ if na_mode:
                 tooltip=short_tip
             ).add_to(m)
         st_folium(m, height=600, use_container_width=True, key="na_map")
-    # ── Data Table (view only) ─────────────────────────────────────
-    st.markdown("---")
-    st.markdown("#### 📋 Neighbourhood Data")
-    if not na_df_final.empty:
-        disp_cols = ["State", "District", "NA_Units"]
-        if "Neighbour_Count" in na_df_final.columns:
-            disp_cols.append("Neighbour_Count")
-        na_table = na_df_final[disp_cols].copy()
-        rename_map = {"NA_Units": f"Units — {na_sector[:45]}"}
-        if "Neighbour_Count" in na_table.columns:
-            rename_map["Neighbour_Count"] = f"Neighbours (within {na_radius_km} km)"
-        na_table = na_table.rename(columns=rename_map)
-        na_table = na_table.sort_values(f"Units — {na_sector[:45]}", ascending=False).reset_index(drop=True)
-        st.dataframe(na_table, use_container_width=True)
-    else:
-        st.write("No data to display.")
 # ─── STANDARD MODE UI ─────────────────────────────────────────────
 else:
     # Dynamic title
@@ -634,17 +618,3 @@ else:
     else:
         st.info("👈 Select a sector from the sidebar to see data on the map.")
     st_folium(m, height=600, use_container_width=True, key="std_map")
-    # Data view (view only — no download)
-    with st.expander("📊 View Data", expanded=False):
-        if selected_columns and not df_filtered.empty:
-            cols_show = ["State", "District", "Size_Category"] + selected_columns
-            if enable_radius and '_dist' in df_filtered.columns:
-                cols_show.insert(3, "_dist")
-            exp_df = df_filtered[cols_show].copy()
-            if "_dist" in exp_df.columns:
-                exp_df = exp_df.rename(columns={"_dist": "Distance_km"})
-            exp_df["Total_Selected"] = exp_df[selected_columns].sum(axis=1)
-            exp_df = exp_df[exp_df["Total_Selected"] > 0].sort_values("Total_Selected", ascending=False)
-            st.dataframe(exp_df, use_container_width=True)
-        else:
-            st.write("No data for current selection.")
