@@ -21,7 +21,37 @@ st.markdown("""
     .stActionButton {visibility: hidden;}
     button[kind="header"] {visibility: hidden;}
     [data-testid="stHeaderActionElements"] {visibility: hidden;}
+    /* Disable sidebar collapsing */
+    [data-testid="stSidebarCollapseButton"] {display: none !important;}
+    [data-testid="collapsedControl"] {display: none !important;}
+    button[kind="headerNoPadding"] {display: none !important;}
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+
+    /* ── Responsive layout (tablet & mobile) ─────────────────────── */
+    /* Tablet and below */
+    @media (max-width: 992px) {
+        .block-container { padding-top: 1rem; padding-left: 1rem; padding-right: 1rem; }
+        section[data-testid="stSidebar"] { min-width: 240px !important; width: 240px !important; }
+    }
+    /* Phones */
+    @media (max-width: 640px) {
+        .block-container { padding-top: 0.75rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+        /* Stack KPI / horizontal columns vertically instead of squashing */
+        div[data-testid="stHorizontalBlock"] { flex-wrap: wrap !important; gap: 0.5rem !important; }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+        /* Scale down headings & metrics for small screens */
+        h1 { font-size: 1.5rem !important; }
+        h2 { font-size: 1.25rem !important; }
+        h3, h4 { font-size: 1.05rem !important; }
+        [data-testid="stMetricValue"] { font-size: 1.4rem !important; }
+        [data-testid="stMetricLabel"] { font-size: 0.8rem !important; }
+        /* Sidebar takes more width when expanded on phones */
+        section[data-testid="stSidebar"] { min-width: 75vw !important; width: 75vw !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 # =====================================================
